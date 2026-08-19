@@ -1,0 +1,49 @@
+name: PythonAnywhere Keep Alive
+
+on:
+  schedule:
+    # Draait automatisch elke 15 dagen
+    - cron: '0 0 */15 * *'
+  workflow_dispatch: # Knop om handmatig te testen via GitHub
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send keep-alive request to PythonAnywhere
+        env:
+          PA_USERNAME: ${{ secrets.PA_USERNAME }}
+          PA_PASSWORD: ${{ secrets.PA_PASSWORD }}
+        run: |
+          python -c "
+          import requests
+          import os
+
+          username = os.environ['PA_USERNAME']
+          password = os.environ['PA_PASSWORD']
+
+          session = requests.Session()
+          
+          # Inloggen op PythonAnywhere
+          login_url = 'https://www.pythonanywhere.com/login/'
+          res = session.get(login_url)
+          csrf_token = session.cookies.get('csrftoken', '')
+
+          login_data = {
+              'csrfmiddlewaretoken': csrf_token,
+              'auth-username': username,
+              'auth-password': password,
+              'login_view-current_step': 'auth'
+          }
+          
+          session.post(login_url, data=login_data, headers={'Referer': login_url})
+
+          # Klikken op de verlengknop
+          extend_url = f'https://www.pythonanywhere.com/user/{username}/webapps/{username}.pythonanywhere.com/extend'
+          res_extend = session.post(extend_url, headers={'Referer': f'https://www.pythonanywhere.com/user/{username}/webapps/'})
+
+          if res_extend.status_code == 200:
+              print('Succesvol verlengd!')
+          else:
+              print('Fout bij verlengen, status code:', res_extend.status_code)
+          "
